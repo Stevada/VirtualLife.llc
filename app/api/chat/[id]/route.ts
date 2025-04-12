@@ -27,7 +27,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   // Stream the response
   const result = await streamText({
-    model: openai("gpt-4o"),
+    model: openai("gpt-3.5-turbo"),
     messages: convertToCoreMessages(messages),
     system: systemPrompt,
   })
