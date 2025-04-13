@@ -53,7 +53,7 @@ export function Sidebar() {
           </Link>
         </div>
         <Button variant="outline" className="w-full mt-4 text-primary">
-          <Link href="/upgrade">Upgrade to Pro</Link>
+          <Link href="/pricing">Subscribe</Link>
         </Button>
       </div>
     </div>
