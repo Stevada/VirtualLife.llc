@@ -124,6 +124,22 @@ export default function TermsOfServicePage() {
           </section>
 
           <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-primary">Refund Policy</h2>
+            <h3 className="text-lg font-normal text-primary">Subscription Terms</h3>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Full refund within 7-day trial period</li>
+              <li>Prorated refunds for annual plans (minus $50 processing fee)</li>
+              <li>No refunds after 30 days of continuous usage</li>
+            </ul>
+            <h3 className="text-lg font-normal text-primary">Chargeback Policy</h3>
+            <p>Filing unwarranted chargebacks will result in:</p>
+            <ul className="list-disc pl-5 space-y-1">
+              <li>Permanent service termination</li>
+              <li>$150 dispute handling fee</li>
+            </ul>
+          </section>
+
+          <section className="space-y-4">
             <h2 className="text-xl font-semibold text-primary">Contact Us</h2>
             <p>If you have any questions about these Terms, please contact us at: terms@VirtualLife.ai</p>
           </section>
