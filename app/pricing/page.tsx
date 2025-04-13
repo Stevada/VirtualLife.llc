@@ -176,8 +176,8 @@ export default function PricingPage() {
                 <div className="mb-4">
                   <div className="w-20 h-20 relative">
                     <Image
-                      src="/placeholder.svg?height=80&width=80"
-                      alt="Purple gem"
+                      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoAKsL0HxRt1N-GMwxua9nzg1-NkvSuU4Sv6bkD1l-dOaI5givkEYO_Mq87GF5FdvKMZE&usqp=CAU?height=80&width=80"
+                      alt="Green gem"
                       width={80}
                       height={80}
                       className="object-contain"
@@ -199,8 +199,8 @@ export default function PricingPage() {
                 <div className="mb-4">
                     <div className="w-20 h-20 relative">
                     <Image
-                        src="/placeholder.svg?height=80&width=80"
-                        alt="Purple gem"
+                        src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoAKsL0HxRt1N-GMwxua9nzg1-NkvSuU4Sv6bkD1l-dOaI5givkEYO_Mq87GF5FdvKMZE&usqp=CAU?height=80&width=80"
+                        alt="Green gem"
                         width={80}
                         height={80}
                         className="object-contain"
@@ -221,8 +221,8 @@ export default function PricingPage() {
                 <div className="mb-4">
                 <div className="w-20 h-20 relative">
                   <Image
-                    src="/placeholder.svg?height=80&width=80"
-                    alt="Purple gem"
+                    src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoAKsL0HxRt1N-GMwxua9nzg1-NkvSuU4Sv6bkD1l-dOaI5givkEYO_Mq87GF5FdvKMZE&usqp=CAU?height=80&width=80"
+                    alt="Green gem"
                     width={80}
                     height={80}
                     className="object-contain"
@@ -246,8 +246,8 @@ export default function PricingPage() {
                 <div className="mb-4">
                   <div className="w-20 h-20 relative">
                     <Image
-                      src="/placeholder.svg?height=80&width=80"
-                      alt="Purple gem"
+                      src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRoAKsL0HxRt1N-GMwxua9nzg1-NkvSuU4Sv6bkD1l-dOaI5givkEYO_Mq87GF5FdvKMZE&usqp=CAU?height=80&width=80"
+                      alt="Green gem"
                       width={80}
                       height={80}
                       className="object-contain"
