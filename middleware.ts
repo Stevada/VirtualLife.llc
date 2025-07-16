@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // Skip origin check for webhook routes (Stripe webhooks)
+  if (request.nextUrl.pathname.startsWith('/api/webhook')) {
+    return NextResponse.next();
+  }
+
   // Get origin from request headers
   const origin = request.headers.get('origin');
   
-  // Only allow requests from Website A
+  // Only allow requests from Website A for non-webhook routes
   if (origin !== process.env.NEXT_PUBLIC_WEBSITE_A_URL) {
     return new NextResponse(null, {
       status: 403,
