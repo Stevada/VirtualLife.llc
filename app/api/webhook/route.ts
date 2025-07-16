@@ -309,18 +309,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
     
   } catch (error: any) {
-    console.error('Webhook error:', error);
-    
-    if (error.type === 'StripeSignatureVerificationError') {
-      return NextResponse.json(
-        { error: 'Invalid signature' },
-        { status: 400 }
-      );
-    }
-    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    // On error, log and return the error message.
+    if (error! instanceof Error) console.log(error);
+    console.log(`❌ Error message: ${errorMessage}`);
     return NextResponse.json(
-      { error: `Webhook Error: ${error.message}` },
-      { status: 500 }
+      {message: `Webhook Error: ${errorMessage}`},
+      {status: 400}
     );
   }
 }
