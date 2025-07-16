@@ -5,15 +5,15 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface CreateSubscriptionRequest {
   userId: string;
-  planId: string;
-  billingPeriod: 'monthly' | 'halfYear' | 'yearly';
+  planType: string;
+  price: string;
   userEmail?: string;
 }
 
 interface UpdateSubscriptionRequest {
   subscriptionId: string;
-  newPlanId: string;
-  newBillingPeriod: string;
+  newPlanType: string;
+  newPrice: string;
 }
 
 interface CancelSubscriptionRequest {
@@ -31,25 +31,6 @@ interface PlanPriceConfig {
     yearly: string;
   };
 }
-
-// Store plan price IDs - in production, fetch from database
-const PLAN_PRICE_IDS: PlanPriceConfig = {
-  pro: {
-    monthly: process.env.STRIPE_PRICE_PRO_MONTHLY!,
-    halfYear: process.env.STRIPE_PRICE_PRO_HALF_YEAR!,
-    yearly: process.env.STRIPE_PRICE_PRO_YEARLY!
-  },
-  plus: {
-    monthly: process.env.STRIPE_PRICE_PLUS_MONTHLY!,
-    halfYear: process.env.STRIPE_PRICE_PLUS_HALF_YEAR!,
-    yearly: process.env.STRIPE_PRICE_PLUS_YEARLY!
-  },
-  astro: {
-    monthly: process.env.STRIPE_PRICE_ASTRO_MONTHLY!,
-    halfYear: process.env.STRIPE_PRICE_ASTRO_HALF_YEAR!,
-    yearly: process.env.STRIPE_PRICE_ASTRO_YEARLY!
-  }
-};
 
 // Enhanced error handling function
 function handleStripeError(error: any, requestId?: string) {
@@ -157,20 +138,12 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSubscriptionRequest = await request.json();
-    const { userId, planId, billingPeriod, userEmail } = body;
+    const { userId, planType, price, userEmail } = body;
 
     // Validate request
-    if (!userId || !planId || !billingPeriod) {
+    if (!userId || !planType || !price) {
       return NextResponse.json({
-        error: 'Missing required fields: userId, planId, billingPeriod'
-      }, { status: 400 });
-    }
-
-    // Get price ID for the plan and billing period
-    const priceId = PLAN_PRICE_IDS[planId]?.[billingPeriod];
-    if (!priceId) {
-      return NextResponse.json({
-        error: 'Invalid plan or billing period'
+        error: 'Missing required fields: userId, planType, price'
       }, { status: 400 });
     }
 
@@ -184,7 +157,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate idempotency key for checkout session
-    const idempotencyKey = `checkout_${userId}_${planId}_${billingPeriod}_${Date.now()}`;
+    const idempotencyKey = `checkout_${userId}_${planType}_${price}_${Date.now()}`;
 
     // Create checkout session with expanded line items
     try {
@@ -194,7 +167,7 @@ export async function POST(request: NextRequest) {
         payment_method_types: ['card'],
         line_items: [
           {
-            price: priceId,
+            price: price,
             quantity: 1,
           },
         ],
@@ -202,14 +175,14 @@ export async function POST(request: NextRequest) {
         cancel_url: `${process.env.MAIN_APP_URL}/subscribe/cancel`,
         metadata: {
           userId,
-          planId,
-          billingPeriod
+          planType,
+          price
         },
         subscription_data: {
           metadata: {
             userId,
-            planId,
-            billingPeriod
+            planType,
+            price
           }
         }
       }, {
@@ -241,19 +214,11 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body: UpdateSubscriptionRequest = await request.json();
-    const { subscriptionId, newPlanId, newBillingPeriod } = body;
+    const { subscriptionId, newPlanType, newPrice } = body;
 
-    if (!subscriptionId || !newPlanId || !newBillingPeriod) {
+    if (!subscriptionId || !newPlanType || !newPrice) {
       return NextResponse.json({
-        error: 'Missing required fields: subscriptionId, newPlanId, newBillingPeriod'
-      }, { status: 400 });
-    }
-
-    // Get new price ID
-    const newPriceId = PLAN_PRICE_IDS[newPlanId as keyof typeof PLAN_PRICE_IDS]?.[newBillingPeriod as keyof PlanPriceConfig[string]];
-    if (!newPriceId) {
-      return NextResponse.json({
-        error: 'Invalid new plan or billing period'
+        error: 'Missing required fields: subscriptionId, newPlanType, newPrice'
       }, { status: 400 });
     }
 
@@ -267,20 +232,20 @@ export async function PATCH(request: NextRequest) {
       const currentItemId = subscription.items.data[0].id;
 
       // Generate idempotency key for update
-      const idempotencyKey = `update_${subscriptionId}_${newPlanId}_${newBillingPeriod}_${Date.now()}`;
+      const idempotencyKey = `update_${subscriptionId}_${newPlanType}_${newPrice}_${Date.now()}`;
 
       // Update subscription with new price
       const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
         items: [
           {
             id: currentItemId,
-            price: newPriceId,
+            price: newPrice,
           },
         ],
         metadata: {
           ...subscription.metadata,
-          planId: newPlanId,
-          billingPeriod: newBillingPeriod
+          planType: newPlanType,
+          price: newPrice
         },
         proration_behavior: 'create_prorations'
       }, {
