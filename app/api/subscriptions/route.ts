@@ -10,6 +10,20 @@ interface CreateSubscriptionRequest {
   userEmail?: string;
 }
 
+interface UpdateSubscriptionRequest {
+  subscriptionId: string;
+  newPlanId: string;
+  newBillingPeriod: string;
+}
+
+interface CancelSubscriptionRequest {
+  subscriptionId: string;
+}
+
+interface ResumeSubscriptionRequest {
+  subscriptionId: string;
+}
+
 interface PlanPriceConfig {
   [key: string]: {
     monthly: string;
@@ -139,13 +153,13 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
   return customer;
 }
 
+// Main POST handler for creating subscriptions
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSubscriptionRequest = await request.json();
     const { userId, planId, billingPeriod, userEmail } = body;
 
     // Validate request
-    // TODO: it shall validate the request signature
     if (!userId || !planId || !billingPeriod) {
       return NextResponse.json({
         error: 'Missing required fields: userId, planId, billingPeriod'
@@ -223,9 +237,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH handler for updating subscriptions
 export async function PATCH(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: UpdateSubscriptionRequest = await request.json();
     const { subscriptionId, newPlanId, newBillingPeriod } = body;
 
     if (!subscriptionId || !newPlanId || !newBillingPeriod) {
@@ -295,9 +310,10 @@ export async function PATCH(request: NextRequest) {
   }
 }
 
+// DELETE handler for canceling subscriptions
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: CancelSubscriptionRequest = await request.json();
     const { subscriptionId } = body;
 
     if (!subscriptionId) {
@@ -341,11 +357,11 @@ export async function DELETE(request: NextRequest) {
   }
 }
 
-// You could create a separate route for resume, or handle it in PATCH
+// PUT handler for resuming subscriptions
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { subscriptionId, action } = body;
+    const body: ResumeSubscriptionRequest = await request.json();
+    const { subscriptionId } = body;
 
     if (!subscriptionId) {
       return NextResponse.json({
@@ -353,37 +369,31 @@ export async function PUT(request: NextRequest) {
       }, { status: 400 });
     }
 
-    if (action === 'resume') {
-      try {
-        // Generate idempotency key for resume
-        const idempotencyKey = `resume_${subscriptionId}_${Date.now()}`;
+    try {
+      // Generate idempotency key for resume
+      const idempotencyKey = `resume_${subscriptionId}_${Date.now()}`;
 
-        // Resume subscription
-        const subscription = await stripe.subscriptions.update(subscriptionId, {
-          cancel_at_period_end: false
-        }, {
-          idempotencyKey
-        });
+      // Resume subscription
+      const subscription = await stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false
+      }, {
+        idempotencyKey
+      });
 
-        console.log('Subscription resumed, ID:', subscription.id);
+      console.log('Subscription resumed, ID:', subscription.id);
 
-        return NextResponse.json({
-          success: true,
-          subscription: {
-            id: subscription.id,
-            status: subscription.status,
-            cancelAtPeriodEnd: subscription.cancel_at_period_end
-          }
-        });
+      return NextResponse.json({
+        success: true,
+        subscription: {
+          id: subscription.id,
+          status: subscription.status,
+          cancelAtPeriodEnd: subscription.cancel_at_period_end
+        }
+      });
 
-      } catch (error: any) {
-        return handleStripeError(error);
-      }
+    } catch (error: any) {
+      return handleStripeError(error);
     }
-
-    return NextResponse.json({
-      error: 'Invalid action'
-    }, { status: 400 });
 
   } catch (error: any) {
     console.error('Error resuming subscription:', error);
