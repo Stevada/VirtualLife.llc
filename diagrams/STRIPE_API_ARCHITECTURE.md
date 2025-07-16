@@ -282,7 +282,7 @@ STRIPE_PRICE_CREDIT_500_PRO=price_...
 # ... (similar for 2000 and 3500 credit packages)
 
 # Application URLs
-MAIN_APP_URL=https://yourdomain.com
+NEXT_PUBLIC_WEBSITE_A_URL=https://yourdomain.com
 ```
 
 ---

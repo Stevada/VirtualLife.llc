@@ -13,7 +13,7 @@ export const config = {
 
 // Helper function to call Main App API with retry logic
 async function callMainAppAPI(endpoint: string, data: any, retries = 3) {
-  const url = `${process.env.MAIN_APP_URL}/api/internal/${endpoint}`;
+  const url = `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/api/internal/${endpoint}`;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {

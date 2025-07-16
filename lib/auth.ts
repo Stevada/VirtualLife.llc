@@ -4,7 +4,7 @@ import * as jose from 'jose';
 // Function to validate origin
 export function validateOrigin(request: NextRequest): boolean {
   const origin = request.headers.get('origin');
-  return origin === process.env.WEBSITE_A_DOMAIN;
+  return origin === process.env.NEXT_PUBLIC_WEBSITE_A_URL;
 }
 
 // JWT authentication function
@@ -56,7 +56,7 @@ export async function authenticate(
 ): Promise<NextResponse> {
   // First check origin through CORS
   if (!validateOrigin(request)) {
-    console.log('Origin validation failed:', request.headers.get('origin'), 'Expected:', process.env.WEBSITE_A_DOMAIN);
+    console.log('Origin validation failed:', request.headers.get('origin'), 'Expected:', process.env.NEXT_PUBLIC_WEBSITE_A_URL);
     return NextResponse.json(
       { error: 'Unauthorized origin' },
       { status: 403 }

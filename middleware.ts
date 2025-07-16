@@ -5,7 +5,7 @@ export function middleware(request: NextRequest) {
   const origin = request.headers.get('origin');
   
   // Only allow requests from Website A
-  if (origin !== process.env.WEBSITE_A_DOMAIN) {
+  if (origin !== process.env.NEXT_PUBLIC_WEBSITE_A_URL) {
     return new NextResponse(null, {
       status: 403,
       statusText: 'Forbidden',
@@ -20,7 +20,7 @@ export function middleware(request: NextRequest) {
     return new NextResponse(null, {
       status: 200,
       headers: {
-        'Access-Control-Allow-Origin': process.env.WEBSITE_A_DOMAIN as string,
+        'Access-Control-Allow-Origin': process.env.NEXT_PUBLIC_WEBSITE_A_URL as string,
         'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Allow-Credentials': 'true',
@@ -30,7 +30,7 @@ export function middleware(request: NextRequest) {
 
   // Set CORS headers for all routes
   const response = NextResponse.next();
-  response.headers.set('Access-Control-Allow-Origin', process.env.WEBSITE_A_DOMAIN as string);
+  response.headers.set('Access-Control-Allow-Origin', process.env.NEXT_PUBLIC_WEBSITE_A_URL as string);
   response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   response.headers.set('Access-Control-Allow-Credentials', 'true');
