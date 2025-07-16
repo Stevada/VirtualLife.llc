@@ -6,14 +6,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 interface CreateSubscriptionRequest {
   userId: string;
   planType: string;
-  price: string;
+  priceId: string;
   userEmail?: string;
 }
 
 interface UpdateSubscriptionRequest {
   subscriptionId: string;
   newPlanType: string;
-  newPrice: string;
+  newPriceId: string;
 }
 
 interface CancelSubscriptionRequest {
@@ -22,14 +22,6 @@ interface CancelSubscriptionRequest {
 
 interface ResumeSubscriptionRequest {
   subscriptionId: string;
-}
-
-interface PlanPriceConfig {
-  [key: string]: {
-    monthly: string;
-    halfYear: string;
-    yearly: string;
-  };
 }
 
 // Enhanced error handling function
@@ -138,10 +130,10 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSubscriptionRequest = await request.json();
-    const { userId, planType, price, userEmail } = body;
+    const { userId, planType, priceId, userEmail } = body;
 
     // Validate request
-    if (!userId || !planType || !price) {
+    if (!userId || !planType || !priceId) {
       return NextResponse.json({
         error: 'Missing required fields: userId, planType, price'
       }, { status: 400 });
@@ -157,7 +149,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate idempotency key for checkout session
-    const idempotencyKey = `checkout_${userId}_${planType}_${price}_${Date.now()}`;
+    const idempotencyKey = `checkout_${userId}_${planType}_${priceId}_${Date.now()}`;
 
     // Create checkout session with expanded line items
     try {
@@ -167,7 +159,7 @@ export async function POST(request: NextRequest) {
         payment_method_types: ['card'],
         line_items: [
           {
-            price: price,
+            price: priceId,
             quantity: 1,
           },
         ],
@@ -176,13 +168,13 @@ export async function POST(request: NextRequest) {
         metadata: {
           userId,
           planType,
-          price
+          priceId
         },
         subscription_data: {
           metadata: {
             userId,
             planType,
-            price
+            priceId
           }
         }
       }, {
@@ -214,9 +206,9 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body: UpdateSubscriptionRequest = await request.json();
-    const { subscriptionId, newPlanType, newPrice } = body;
+    const { subscriptionId, newPlanType, newPriceId } = body;
 
-    if (!subscriptionId || !newPlanType || !newPrice) {
+    if (!subscriptionId || !newPlanType || !newPriceId) {
       return NextResponse.json({
         error: 'Missing required fields: subscriptionId, newPlanType, newPrice'
       }, { status: 400 });
@@ -232,20 +224,20 @@ export async function PATCH(request: NextRequest) {
       const currentItemId = subscription.items.data[0].id;
 
       // Generate idempotency key for update
-      const idempotencyKey = `update_${subscriptionId}_${newPlanType}_${newPrice}_${Date.now()}`;
+      const idempotencyKey = `update_${subscriptionId}_${newPlanType}_${newPriceId}_${Date.now()}`;
 
       // Update subscription with new price
       const updatedSubscription = await stripe.subscriptions.update(subscriptionId, {
         items: [
           {
             id: currentItemId,
-            price: newPrice,
+            price: newPriceId,
           },
         ],
         metadata: {
           ...subscription.metadata,
           planType: newPlanType,
-          price: newPrice
+          priceId: newPriceId
         },
         proration_behavior: 'create_prorations'
       }, {
