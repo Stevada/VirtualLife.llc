@@ -177,8 +177,8 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
-        success_url: `${process.env.NEXT_PUBLIC_WEBSITE_B_URL}/subscribe/success?session_id={CHECKOUT_SESSION_ID}&type=credit`,
-        cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_B_URL}/subscribe/cancel`,
+        success_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/success?session_id={CHECKOUT_SESSION_ID}&type=credit`,
+        cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/cancel`,
         metadata: {
           userId,
           packageId,
