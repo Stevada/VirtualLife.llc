@@ -244,7 +244,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
 
 export async function POST(request: NextRequest) {
   const body = await request.text();
-  const signature = (await headers()).get('stripe-signature') as string;
+  const signature = request.headers.get('stripe-signature') as string;
   
   if (!signature) {
     console.error('Stripe signature missing');
