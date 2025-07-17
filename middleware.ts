@@ -9,8 +9,14 @@ export function middleware(request: NextRequest) {
   // Get origin from request headers
   const origin = request.headers.get('origin');
   
-  // Only allow requests from Website A for non-webhook routes
-  if (origin !== process.env.NEXT_PUBLIC_WEBSITE_A_URL) {
+  const allowedOrigins = [
+    process.env.NEXT_PUBLIC_WEBSITE_A_URL,
+    process.env.NEXT_PUBLIC_WEBSITE_B_URL,
+    'http://localhost:3000', // add your local dev URL(s)
+    'http://127.0.0.1:3000'
+  ];
+
+  if (origin && !allowedOrigins.includes(origin)) {
     return new NextResponse(null, {
       status: 403,
       statusText: 'Forbidden',

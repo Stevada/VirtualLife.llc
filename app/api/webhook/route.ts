@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { headers } from 'next/headers';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -11,12 +10,25 @@ export const config = {
   },
 };
 
-// Helper function to call Main App API with retry logic
-async function callMainAppAPI(endpoint: string, data: any, retries = 3) {
+// Standardized metadata interface
+interface StripeMetadata {
+  userId: string;
+  planId?: string;
+  packageId?: string;
+  billingPeriod?: 'monthly' | 'half_year' | 'yearly';
+  // TODO: what about type basic?
+  userPlanType?: 'pro' | 'plus' | 'astro';
+  type: 'subscription' | 'credit_purchase';
+}
+
+// Enhanced error handling with retry logic
+async function callMainAppAPI(endpoint: string, data: any, retries = 3): Promise<any> {
   const url = `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/api/internal/${endpoint}`;
   
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
+      console.log(`🔄 API call attempt ${attempt}/${retries} to ${endpoint}`);
+      
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -27,85 +39,130 @@ async function callMainAppAPI(endpoint: string, data: any, retries = 3) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: response.statusText }));
         throw new Error(`API call failed: ${errorData.error || response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log(`✅ API call successful to ${endpoint}`);
+      return result;
     } catch (error) {
-      console.error(`Attempt ${attempt} failed for ${endpoint}:`, error);
+      console.error(`❌ Attempt ${attempt} failed for ${endpoint}:`, error);
       
       if (attempt === retries) {
         throw error;
       }
       
       // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+      const delay = Math.pow(2, attempt) * 1000;
+      console.log(`⏳ Retrying in ${delay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 }
 
-// Handle successful subscription checkout
+// Validate metadata with fallback
+function validateMetadata(metadata: any, eventType: string): StripeMetadata | null {
+  if (!metadata) {
+    console.warn(`⚠️ No metadata found for ${eventType}`);
+    return null;
+  }
+
+  const requiredFields = ['userId', 'type'];
+  const missingFields = requiredFields.filter(field => !metadata[field]);
+  
+  if (missingFields.length > 0) {
+    console.error(`❌ Missing required metadata fields for ${eventType}:`, missingFields);
+    return null;
+  }
+
+  return metadata as StripeMetadata;
+}
+
+// Handle successful subscription checkout with enhanced error handling
 async function handleSubscriptionSuccess(session: Stripe.Checkout.Session) {
   try {
-    const { userId, planId, billingPeriod } = session.metadata || {};
+    const metadata = validateMetadata(session.metadata, 'subscription');
+    if (!metadata) {
+      throw new Error('Invalid or missing metadata for subscription');
+    }
     
-    console.log('Subscription payment successful:', {
+    console.log('📦 Subscription payment successful:', {
       sessionId: session.id,
-      userId,
-      planId,
-      billingPeriod,
+      userId: metadata.userId,
+      planId: metadata.planId,
+      billingPeriod: metadata.billingPeriod,
       subscriptionId: session.subscription
     });
 
-    if (!userId || !planId || !billingPeriod || !session.subscription) {
-      throw new Error('Missing required metadata in session');
+    if (!session.subscription) {
+      throw new Error('No subscription ID in session');
     }
 
     // Get subscription details from Stripe
     const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
     
-    // Calculate next credit renewal date (usually same as current period end)
+    // Calculate next credit renewal date
     const nextCreditRenewalDate = new Date((subscription as any).current_period_end * 1000).toISOString();
     
     // Create subscription record in Main App
     await callMainAppAPI('subscription/create', {
-      userId,
+      userId: metadata.userId,
       stripeSubscriptionId: subscription.id,
       stripeCustomerId: subscription.customer as string,
-      planId,
-      stripePriceId: subscription.items.data[0].price.id,
+      planId: metadata.planId!,
       status: subscription.status,
-      billingPeriod,
-      currentPeriodStart: new Date((subscription as any).current_period_start * 1000).toISOString(),
-      currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
       nextCreditRenewalDate,
       allocateCredits: true,
     });
 
-    console.log('Subscription created successfully in Main App');
+    // Update sync status
+    await callMainAppAPI('subscription/sync', {
+      stripeSubscriptionId: subscription.id,
+      syncStatus: 'synced',
+      lastWebhookEvent: 'checkout.session.completed',
+    });
+
+    console.log('✅ Subscription created successfully in Main App');
 
   } catch (error) {
-    console.error('Error handling subscription success:', error);
+    console.error('❌ Error handling subscription success:', error);
+    
+    // Update sync status to failed if we have a subscription ID
+    if (session.subscription) {
+      try {
+        await callMainAppAPI('subscription/sync', {
+          stripeSubscriptionId: session.subscription as string,
+          syncStatus: 'failed',
+          lastWebhookEvent: 'checkout.session.completed',
+        });
+      } catch (syncError) {
+        console.error('❌ Failed to update sync status:', syncError);
+      }
+    }
+    
     throw error;
   }
 }
 
-// Handle successful credit purchase
+// Handle successful credit purchase with enhanced error handling
 async function handleCreditPurchaseSuccess(session: Stripe.Checkout.Session) {
   try {
-    const { userId, packageId, userPlanType } = session.metadata || {};
+    const metadata = validateMetadata(session.metadata, 'credit_purchase');
+    if (!metadata) {
+      throw new Error('Invalid or missing metadata for credit purchase');
+    }
     
-    console.log('Credit purchase successful:', {
+    console.log('💰 Credit purchase successful:', {
       sessionId: session.id,
-      userId,
-      packageId,
-      userPlanType,
+      userId: metadata.userId,
+      packageId: metadata.packageId,
+      userPlanType: metadata.userPlanType,
       paymentIntentId: session.payment_intent
     });
 
-    if (!userId || !packageId) {
-      throw new Error('Missing required metadata in session');
+    if (!metadata.packageId) {
+      throw new Error('Missing packageId in metadata');
     }
 
     // Credit amounts mapping
@@ -115,22 +172,22 @@ async function handleCreditPurchaseSuccess(session: Stripe.Checkout.Session) {
       '3500': 3500
     };
 
-    const creditsToAdd = creditAmounts[packageId];
+    const creditsToAdd = creditAmounts[metadata.packageId];
     if (!creditsToAdd) {
-      throw new Error(`Unknown package ID: ${packageId}`);
+      throw new Error(`Unknown package ID: ${metadata.packageId}`);
     }
 
     // Add credits to user account
     await callMainAppAPI('credits/add', {
-      userId,
+      userId: metadata.userId,
       amount: creditsToAdd,
-      reason: `Credit package purchase: ${packageId} credits`,
+      reason: `Credit package purchase: ${metadata.packageId} credits`,
       transactionId: session.payment_intent as string,
     });
 
     // Record transaction
     await callMainAppAPI('credits/transaction', {
-      userId,
+      userId: metadata.userId,
       amount: session.amount_total ? session.amount_total / 100 : 0, // Convert from cents
       creditsAdded: creditsToAdd,
       status: 'completed',
@@ -138,70 +195,117 @@ async function handleCreditPurchaseSuccess(session: Stripe.Checkout.Session) {
       paymentId: session.payment_intent as string,
       metadata: {
         sessionId: session.id,
-        packageId,
-        userPlanType,
+        packageId: metadata.packageId,
+        userPlanType: metadata.userPlanType,
       },
     });
 
-    console.log('Credit purchase processed successfully in Main App');
+    console.log('✅ Credit purchase processed successfully in Main App');
 
   } catch (error) {
-    console.error('Error handling credit purchase success:', error);
+    console.error('❌ Error handling credit purchase success:', error);
     throw error;
   }
 }
 
-// Handle subscription status changes
+// Handle subscription status changes with enhanced error handling
 async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   try {
-    const { userId, planId } = subscription.metadata || {};
+    const metadata = validateMetadata(subscription.metadata, 'subscription_change');
     
-    console.log('Subscription status changed:', {
+    console.log('🔄 Subscription status changed:', {
       subscriptionId: subscription.id,
-      userId,
-      planId,
+      userId: metadata?.userId || 'unknown',
+      planId: metadata?.planId || 'unknown',
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancel_at_period_end
     });
-
-    if (!userId) {
-      throw new Error('Missing userId in subscription metadata');
-    }
 
     // Update subscription status in Main App
     await callMainAppAPI('subscription/update', {
       stripeSubscriptionId: subscription.id,
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      currentPeriodEnd: new Date((subscription as any).current_period_end * 1000).toISOString(),
     });
 
-    console.log('Subscription status updated successfully in Main App');
+    // Update sync status
+    await callMainAppAPI('subscription/sync', {
+      stripeSubscriptionId: subscription.id,
+      syncStatus: 'synced',
+      lastWebhookEvent: 'customer.subscription.updated',
+    });
+
+    console.log('✅ Subscription status updated successfully in Main App');
 
   } catch (error) {
-    console.error('Error handling subscription change:', error);
+    console.error('❌ Error handling subscription change:', error);
+    
+    // Update sync status to failed
+    try {
+      await callMainAppAPI('subscription/sync', {
+        stripeSubscriptionId: subscription.id,
+        syncStatus: 'failed',
+        lastWebhookEvent: 'customer.subscription.updated',
+      });
+    } catch (syncError) {
+      console.error('❌ Failed to update sync status:', syncError);
+    }
+    
     throw error;
   }
 }
 
-// Handle payment failures
+// Handle payment failures with enhanced logging
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
   try {
-    console.log('Payment failed:', {
+    console.log('💥 Payment failed:', {
       paymentIntentId: paymentIntent.id,
-      lastPaymentError: paymentIntent.last_payment_error?.message
+      lastPaymentError: paymentIntent.last_payment_error?.message,
+      amount: paymentIntent.amount,
+      currency: paymentIntent.currency
     });
 
-    // Log the failure - could extend to notify user or trigger retry logic
-    console.warn('Payment failure logged. Manual intervention may be required.');
+    // Log the failure for monitoring
+    console.warn('⚠️ Payment failure logged. Manual intervention may be required.');
     
   } catch (error) {
-    console.error('Error handling payment failure:', error);
+    console.error('❌ Error handling payment failure:', error);
     throw error;
   }
 }
 
-// Handle invoice payment failures (for subscriptions)
+async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
+  try {
+    const invoiceWithSub = invoice as any;
+    const subscriptionId = invoiceWithSub.subscription;
+
+    if (!subscriptionId) {
+      console.log('ℹ️ No subscription found for invoice:', invoice.id);
+      return;
+    }
+    
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+
+    // Update subscription status
+    await callMainAppAPI('subscription/update', {
+      stripeSubscriptionId: subscription.id,
+      status: 'active',
+      cancelAtPeriodEnd: false,
+    });
+
+    // Update sync status
+    await callMainAppAPI('subscription/sync', {
+      stripeSubscriptionId: subscription.id,
+      syncStatus: 'synced',
+      lastWebhookEvent: 'invoice.payment_succeeded',
+    });
+  } catch (error) {
+    console.error('❌ Error handling invoice payment succeeded:', error);
+    throw error;
+  }
+}
+
+// Handle invoice payment failures (for subscriptions) with enhanced error handling
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   try {
     // Cast to access subscription property
@@ -209,23 +313,22 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
     const subscriptionId = invoiceWithSub.subscription;
       
     if (!subscriptionId) {
-      console.log('No subscription found for invoice:', invoice.id);
+      console.log('ℹ️ No subscription found for invoice:', invoice.id);
       return;
     }
     
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const { userId } = subscription.metadata || {};
+    // TODO: why do we need to validate metadata here?
+    const metadata = validateMetadata(subscription.metadata, 'invoice_payment_failed');
     
-    console.log('Invoice payment failed:', {
+    console.log('💥 Invoice payment failed:', {
       invoiceId: invoice.id,
       subscriptionId,
-      userId,
-      attemptCount: invoice.attempt_count
+      userId: metadata?.userId || 'unknown',
+      attemptCount: invoice.attempt_count,
+      amountDue: invoice.amount_due,
+      currency: invoice.currency
     });
-
-    if (!userId) {
-      throw new Error('Missing userId in subscription metadata');
-    }
 
     // Update subscription status to reflect payment failure
     await callMainAppAPI('subscription/update', {
@@ -234,10 +337,34 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
       cancelAtPeriodEnd: false,
     });
 
-    console.log('Subscription marked as past_due due to payment failure');
+    // Update sync status
+    await callMainAppAPI('subscription/sync', {
+      stripeSubscriptionId: subscriptionId,
+      syncStatus: 'synced',
+      lastWebhookEvent: 'invoice.payment_failed',
+    });
+
+    console.log('✅ Subscription marked as past_due due to payment failure');
     
   } catch (error) {
-    console.error('Error handling invoice payment failure:', error);
+    console.error('❌ Error handling invoice payment failure:', error);
+    
+    // Update sync status to failed if we have a subscription ID
+    const invoiceWithSub = invoice as any;
+    const subscriptionId = invoiceWithSub.subscription;
+    
+    if (subscriptionId) {
+      try {
+        await callMainAppAPI('subscription/sync', {
+          stripeSubscriptionId: subscriptionId,
+          syncStatus: 'failed',
+          lastWebhookEvent: 'invoice.payment_failed',
+        });
+      } catch (syncError) {
+        console.error('❌ Failed to update sync status:', syncError);
+      }
+    }
+    
     throw error;
   }
 }
@@ -247,7 +374,7 @@ export async function POST(request: NextRequest) {
   const signature = request.headers.get('stripe-signature') as string;
   
   if (!signature) {
-    console.error('Stripe signature missing');
+    console.error('❌ Stripe signature missing');
     return NextResponse.json(
       { error: 'Stripe signature missing' },
       { status: 400 }
@@ -262,9 +389,13 @@ export async function POST(request: NextRequest) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
     
-    console.log('Webhook received:', event.type);
+    console.log('📨 Webhook received:', {
+      type: event.type,
+      id: event.id,
+      created: new Date(event.created * 1000).toISOString()
+    });
     
-    // Handle different event types
+    // Handle different event types with enhanced error handling
     switch (event.type) {
       // Checkout completion events
       case 'checkout.session.completed':
@@ -295,24 +426,31 @@ export async function POST(request: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         await handleInvoicePaymentFailed(invoice);
         break;
+
+      case 'invoice.payment_succeeded':
+        const invoicePaymentSucceeded = event.data.object as Stripe.Invoice;
+        await handleInvoicePaymentSucceeded(invoicePaymentSucceeded);
+        break;
       
       // Customer events
       case 'customer.subscription.trial_will_end':
-        console.log('Trial ending soon for subscription:', event.data.object.id);
+        console.log('⏰ Trial ending soon for subscription:', event.data.object.id);
         // Could extend to send trial ending notification
         break;
       
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }
     
     return NextResponse.json({ received: true });
     
   } catch (error: any) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    // On error, log and return the error message.
-    if (error! instanceof Error) console.log(error);
-    console.log(`❌ Error message: ${errorMessage}`);
+    console.error('❌ Webhook processing error:', {
+      message: errorMessage,
+      stack: error.stack
+    });
+    
     return NextResponse.json(
       {message: `Webhook Error: ${errorMessage}`},
       {status: 400}

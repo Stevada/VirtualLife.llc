@@ -4,12 +4,36 @@ import { X, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import Image from "next/image"
+import { useState } from 'react'
 
 export default function PricingPage() {
   const router = useRouter()
+  const [loading, setLoading] = useState(false)
+
+  async function handleManageSubscription() {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/customer-portal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'stevexu247@gmail.com' }) // TODO: Replace with actual user email
+      })
+      const data = await res.json()
+      if (data.url) {
+        window.location.href = data.url
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col items-center bg-black text-white p-4 pt-16">
+      <div className="w-full flex justify-end mb-4">
+        <Button onClick={handleManageSubscription} disabled={loading} className="bg-blue-600 hover:bg-blue-500">
+          {loading ? 'Loading...' : 'Your Subscription'}
+        </Button>
+      </div>
       <button
         onClick={() => router.back()}
         className="absolute top-6 right-6 p-2 rounded-full bg-gray-700/50 hover:bg-gray-700/70 transition-colors"
