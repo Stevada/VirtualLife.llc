@@ -255,56 +255,6 @@ async function handleSubscriptionChange(subscription: Stripe.Subscription) {
   }
 }
 
-// Handle payment failures with enhanced logging
-async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  try {
-    console.log('💥 Payment failed:', {
-      paymentIntentId: paymentIntent.id,
-      lastPaymentError: paymentIntent.last_payment_error?.message,
-      amount: paymentIntent.amount,
-      currency: paymentIntent.currency
-    });
-
-    // Log the failure for monitoring
-    console.warn('⚠️ Payment failure logged. Manual intervention may be required.');
-    
-  } catch (error) {
-    console.error('❌ Error handling payment failure:', error);
-    throw error;
-  }
-}
-
-async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
-  try {
-    const invoiceWithSub = invoice as any;
-    const subscriptionId = invoiceWithSub.subscription;
-
-    if (!subscriptionId) {
-      console.log('ℹ️ No subscription found for invoice:', invoice.id);
-      return;
-    }
-    
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-
-    // Update subscription status
-    await callMainAppAPI('subscription/update', {
-      stripeSubscriptionId: subscription.id,
-      status: 'active',
-      cancelAtPeriodEnd: false,
-    });
-
-    // Update sync status
-    await callMainAppAPI('subscription/sync', {
-      stripeSubscriptionId: subscription.id,
-      syncStatus: 'synced',
-      lastWebhookEvent: 'invoice.payment_succeeded',
-    });
-  } catch (error) {
-    console.error('❌ Error handling invoice payment succeeded:', error);
-    throw error;
-  }
-}
-
 // Handle invoice payment failures (for subscriptions) with enhanced error handling
 async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   try {
@@ -401,11 +351,13 @@ export async function POST(request: NextRequest) {
       case 'checkout.session.completed':
         const session = event.data.object as Stripe.Checkout.Session;
         
-        if (session.metadata?.type === 'credit_purchase') {
+        if (session.mode === 'payment') {
           await handleCreditPurchaseSuccess(session);
-        } else {
-          // Default to subscription
+        } else if (session.mode === 'subscription') {
           await handleSubscriptionSuccess(session);
+        } else {
+          console.log('ℹ️ Unhandled checkout session mode:', session.mode);
+          throw new Error(`Unhandled checkout session mode: ${session.mode}`);
         }
         break;
       
@@ -416,28 +368,11 @@ export async function POST(request: NextRequest) {
         await handleSubscriptionChange(subscription);
         break;
       
-      // Payment failure events
-      case 'payment_intent.payment_failed':
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
-        await handlePaymentFailed(paymentIntent);
-        break;
-      
       case 'invoice.payment_failed':
         const invoice = event.data.object as Stripe.Invoice;
         await handleInvoicePaymentFailed(invoice);
         break;
 
-      case 'invoice.payment_succeeded':
-        const invoicePaymentSucceeded = event.data.object as Stripe.Invoice;
-        await handleInvoicePaymentSucceeded(invoicePaymentSucceeded);
-        break;
-      
-      // Customer events
-      case 'customer.subscription.trial_will_end':
-        console.log('⏰ Trial ending soon for subscription:', event.data.object.id);
-        // Could extend to send trial ending notification
-        break;
-      
       default:
         console.log(`ℹ️ Unhandled event type: ${event.type}`);
     }
