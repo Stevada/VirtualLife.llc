@@ -134,13 +134,14 @@ async function handleSubscriptionStatusChange(data: Stripe.Subscription) {
 async function handleCreditPurchaseSuccess(data: Stripe.Checkout.Session) {
   try {
     const metadata = data.metadata as unknown as { userId: string };
-    const invoice = await stripe.invoices.retrieve(data.invoice as string);
+    const expandedSession = await stripe.checkout.sessions.retrieve(data.id, {
+      expand: ['line_items.data.price.product']
+    });
 
-    for (let i = 0; i < invoice.lines.data.length; i++) {
-        const item = invoice.lines.data[i];
-        const productId = item.pricing?.price_details?.product;
-        if (productId) {
-            const product = await stripe.products.retrieve(productId);
+    for (let i = 0; i < (expandedSession.line_items?.data?.length ?? 0); i++) {
+        const item = expandedSession.line_items?.data[i];
+        const product = item?.price?.product as Stripe.Product;
+        if (product) {
             const amount = product.metadata.credits;
             await callMainAppAPI('credits/add', {
                 userId: metadata.userId,
