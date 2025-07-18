@@ -5,7 +5,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
 interface PurchaseCreditsRequest {
   userId: string;
-  packageId: string;
+  priceId: string;
   userPlanType: 'pro' | 'plus' | 'astro' | 'base';
   userEmail?: string;
 }
@@ -136,20 +136,12 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: PurchaseCreditsRequest = await request.json();
-    const { userId, packageId, userPlanType, userEmail } = body;
+    const { userId, priceId, userPlanType, userEmail } = body;
 
     // Validate request
-    if (!userId || !packageId || !userPlanType) {
+    if (!userId || !priceId || !userPlanType) {
       return NextResponse.json({
-        error: 'Missing required fields: userId, packageId, userPlanType'
-      }, { status: 400 });
-    }
-
-    // Get price ID based on user's plan
-    const priceId = CREDIT_PRICE_IDS[packageId]?.[userPlanType];
-    if (!priceId) {
-      return NextResponse.json({
-        error: 'Invalid package or plan type'
+        error: 'Missing required fields: userId, priceId, userPlanType'
       }, { status: 400 });
     }
 
@@ -163,7 +155,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate idempotency key for checkout session
-    const idempotencyKey = `credits_${userId}_${packageId}_${userPlanType}_${Date.now()}`;
+    const idempotencyKey = `credits_${userId}_${priceId}_${userPlanType}_${Date.now()}`;
 
     // Create checkout session for one-time payment
     try {
@@ -181,7 +173,7 @@ export async function POST(request: NextRequest) {
         cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/cancel`,
         metadata: {
           userId,
-          packageId,
+          priceId,
           userPlanType,
           type: 'credit_purchase'
         }
