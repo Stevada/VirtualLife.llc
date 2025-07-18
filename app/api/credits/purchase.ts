@@ -6,40 +6,8 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 interface PurchaseCreditsRequest {
   userId: string;
   priceId: string;
-  userPlanType: 'pro' | 'plus' | 'astro' | 'base';
   userEmail?: string;
 }
-
-interface CreditPriceConfig {
-  [key: string]: {
-    base: string;
-    pro: string;
-    plus: string;
-    astro: string;
-  };
-}
-
-// Store credit package price IDs - in production, fetch from database
-const CREDIT_PRICE_IDS: CreditPriceConfig = {
-  '500': {
-    base: process.env.STRIPE_PRICE_CREDIT_500_BASE!,
-    pro: process.env.STRIPE_PRICE_CREDIT_500_PRO!,
-    plus: process.env.STRIPE_PRICE_CREDIT_500_PLUS!,
-    astro: process.env.STRIPE_PRICE_CREDIT_500_ASTRO!
-  },
-  '2000': {
-    base: process.env.STRIPE_PRICE_CREDIT_2000_BASE!,
-    pro: process.env.STRIPE_PRICE_CREDIT_2000_PRO!,
-    plus: process.env.STRIPE_PRICE_CREDIT_2000_PLUS!,
-    astro: process.env.STRIPE_PRICE_CREDIT_2000_ASTRO!
-  },
-  '3500': {
-    base: process.env.STRIPE_PRICE_CREDIT_3500_BASE!,
-    pro: process.env.STRIPE_PRICE_CREDIT_3500_PRO!,
-    plus: process.env.STRIPE_PRICE_CREDIT_3500_PLUS!,
-    astro: process.env.STRIPE_PRICE_CREDIT_3500_ASTRO!
-  }
-};
 
 // Enhanced error handling function
 function handleStripeError(error: any) {
@@ -136,12 +104,12 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: PurchaseCreditsRequest = await request.json();
-    const { userId, priceId, userPlanType, userEmail } = body;
+    const { userId, priceId, userEmail } = body;
 
     // Validate request
-    if (!userId || !priceId || !userPlanType) {
+    if (!userId || !priceId) {
       return NextResponse.json({
-        error: 'Missing required fields: userId, priceId, userPlanType'
+        error: 'Missing required fields: userId, priceId'
       }, { status: 400 });
     }
 
@@ -155,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate idempotency key for checkout session
-    const idempotencyKey = `credits_${userId}_${priceId}_${userPlanType}_${Date.now()}`;
+    const idempotencyKey = `credits_${userId}_${priceId}_${Date.now()}`;
 
     // Create checkout session for one-time payment
     try {
@@ -173,8 +141,6 @@ export async function POST(request: NextRequest) {
         cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/cancel`,
         metadata: {
           userId,
-          priceId,
-          userPlanType,
           type: 'credit_purchase'
         }
       }, {
