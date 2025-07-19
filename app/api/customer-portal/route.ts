@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createCustomerPortalSessionByEmail } from '@/app/actions/stripe_actions'
+import { stripe } from '@/lib/stripe'
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +12,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const session = await createCustomerPortalSessionByEmail(email)
+    // Find customer by email
+    const customers = await stripe.customers.list({
+      email: email,
+      limit: 1,
+    })
+
+    if (customers.data.length === 0) {
+      throw new Error('Customer not found')
+    }
+
+    const customer = customers.data[0]  // Create portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customer.id,
+      return_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/profile`,
+    })
     return NextResponse.json({ url: session.url })
   } catch (error) {
     console.error('Customer portal error:', error)
