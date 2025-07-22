@@ -17,6 +17,7 @@ export function middleware(request: NextRequest) {
   ];
 
   if (origin && !allowedOrigins.includes(origin)) {
+    console.log('Origin not allowed:', origin);
     return new NextResponse(null, {
       status: 403,
       statusText: 'Forbidden',
