@@ -8,12 +8,14 @@ interface CreateSubscriptionRequest {
   planId: string;
   priceId: string;
   userEmail: string;
+  couponId?: string;
 }
 
 interface UpdateSubscriptionRequest {
   subscriptionId: string;
   newPlanId: string;
   newPriceId: string;
+  couponId?: string;
 }
 
 interface CancelSubscriptionRequest {
@@ -130,7 +132,7 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: CreateSubscriptionRequest = await request.json();
-    const { userId, planId, priceId, userEmail } = body;
+    const { userId, planId, priceId, userEmail, couponId } = body;
 
     // Validate request
     if (!userId || !planId || !priceId) {
@@ -163,6 +165,7 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
+        discounts: couponId ? [{coupon: couponId}] : undefined,
         success_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/cancel`,
         metadata: {
@@ -205,7 +208,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   try {
     const body: UpdateSubscriptionRequest = await request.json();
-    const { subscriptionId, newPlanId, newPriceId } = body;
+    const { subscriptionId, newPlanId, newPriceId, couponId } = body;
 
     if (!subscriptionId || !newPlanId || !newPriceId) {
       return NextResponse.json({
@@ -238,7 +241,8 @@ export async function PATCH(request: NextRequest) {
           planId: newPlanId,
           priceId: newPriceId
         },
-        proration_behavior: 'create_prorations'
+        proration_behavior: 'create_prorations',
+        discounts: couponId ? [{coupon: couponId}] : undefined,
       }, {
         idempotencyKey
       });
