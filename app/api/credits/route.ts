@@ -7,6 +7,7 @@ interface PurchaseCreditsRequest {
   userId: string;
   priceId: string;
   userEmail?: string;
+  couponId?: string;
 }
 
 // Enhanced error handling function
@@ -104,7 +105,7 @@ async function findOrCreateCustomer(userEmail?: string, userId?: string): Promis
 export async function POST(request: NextRequest) {
   try {
     const body: PurchaseCreditsRequest = await request.json();
-    const { userId, priceId, userEmail } = body;
+    const { userId, priceId, userEmail, couponId } = body;
 
     // Validate request
     if (!userId || !priceId) {
@@ -137,6 +138,7 @@ export async function POST(request: NextRequest) {
             quantity: 1,
           },
         ],
+        discounts: couponId ? [{coupon: couponId}] : undefined,
         success_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/success?session_id={CHECKOUT_SESSION_ID}&type=credit`,
         cancel_url: `${process.env.NEXT_PUBLIC_WEBSITE_A_URL}/subscribe/cancel`,
         metadata: {
