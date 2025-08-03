@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/sidebar"
 import { CharacterGrid } from "@/components/character-grid"
+import FooterComponent from "@/components/footer/FooterComponent"
 
 export default function HomePage() {
   return (
@@ -80,6 +81,7 @@ export default function HomePage() {
             },
           ]}
         />
+        <FooterComponent />
       </main>
     </div>
   )

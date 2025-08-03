@@ -101,7 +101,7 @@ export default function DiscoverPage() {
               <CharacterGrid title={category.title} characters={category.characters} />
             </TabsContent>
           ))}
-        </Tabs>
+        </Tabs> 
       </main>
     </div>
   )
