@@ -80,14 +80,14 @@ const DEFAULT_SECTIONS: FooterSection[] = [
   {
     title: "Features",
     links: [
-      { title: "AI Character Chat", href: "/discover" },
+      { title: "AI Character Chat", href: "/" },
       { title: "Character Gallery", href: "/gallery" },
     ]
   },
   {
     title: "Popular",
     links: [
-      { title: "Featured Characters", href: "/discover" },
+      { title: "Featured Characters", href: "/" },
     ]
   }
 ];

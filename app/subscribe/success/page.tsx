@@ -16,7 +16,7 @@ export default function SubscriptionSuccessPage() {
         <h1 className="text-2xl font-bold mb-4">Thank You!</h1>
         <p className="mb-6 text-gray-600">Your subscription was successful! You now have access to Pro features.</p>
         <Link 
-          href="/discover" 
+          href="/" 
           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           Go to chat

@@ -61,7 +61,7 @@ export function useSession(): SessionContextValue {
 export const signIn = async (providerId?: string, options?: any) => {
   // Simulate sign in - you can change CURRENT_USER_ID in mock-data.ts to test different users
   console.log('Mock sign in called');
-  window.location.href = options?.callbackUrl || '/discover';
+  window.location.href = options?.callbackUrl || '/';
 };
 
 export const signOut = async (options?: any) => {

@@ -155,7 +155,7 @@ export default function SubscribePage() {
     
     if (isBasicPlan && userState.isGuest) {
       // For basic plan, just redirect to sign up (no subscription needed)
-      router.push('/signin?callbackUrl=/discover');
+      router.push('/signin?callbackUrl=/');
       return;
     }
     
@@ -317,10 +317,10 @@ export default function SubscribePage() {
         )}
         <Button
           variant="outline"
-          onClick={() => router.push('/discover')}
+          onClick={() => router.push('/')}
           className="mt-3 px-4 py-2 text-sm border-purple-500 hover:border-2 transition-colors"
         >
-          <Link href="/discover">
+          <Link href="/">
             Back to Discover
           </Link>
         </Button>
@@ -705,7 +705,7 @@ export default function SubscribePage() {
       
       <div className="mt-8 text-center">
         <Link
-          href="/discover"
+          href="/"
           className="text-sm text-gray-300 hover:text-purple-500"
         >
           {'Maybe later'}
