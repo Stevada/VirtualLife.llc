@@ -23,14 +23,14 @@ export function CharacterGrid({ title, characters }: CharacterGridProps) {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {characters.map((character) => (
           <Link href={`/chat/${character.id}`} key={character.id}>
-            <div className="character-card">
+            <div className="character-card rounded-xl overflow-hidden shadow-md hover:shadow-xl hover:scale-105 transition-all duration-300">
               <div className="relative">
                 <Image
                   src={character.image || "/placeholder.svg"}
                   alt={character.name}
                   width={400}
                   height={400}
-                  className="character-card-image"
+                  className="character-card-image object-cover w-full h-64"
                 />
               </div>
               <div className="character-card-content">

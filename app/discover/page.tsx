@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar"
 import { CharacterGrid } from "@/components/character-grid"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Input } from "@/components/ui/input"
 
 export default function DiscoverPage() {
   // Mock data for different categories
@@ -85,7 +86,13 @@ export default function DiscoverPage() {
     <div className="flex h-screen">
       <Sidebar />
       <main className="flex-1 overflow-auto p-6">
-        <h1 className="text-3xl font-bold mb-6">Discover Characters</h1>
+        <h1 className="text-3xl font-bold mb-6 bg-gradient-to-r from-primary to-secondary text-transparent bg-clip-text">Discover Characters</h1>
+        <div className="mb-6">
+          <Input
+            placeholder="Search characters..."
+            className="max-w-md rounded-full border-2 border-primary focus:border-secondary transition-colors"
+          />
+        </div>
 
         <Tabs defaultValue="all" className="mb-8">
           <TabsList>
@@ -101,7 +108,7 @@ export default function DiscoverPage() {
               <CharacterGrid title={category.title} characters={category.characters} />
             </TabsContent>
           ))}
-        </Tabs> 
+        </Tabs>
       </main>
     </div>
   )

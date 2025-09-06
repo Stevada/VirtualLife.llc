@@ -17,8 +17,8 @@ interface ChatPageProps {
   }
 }
 
-export default async function ChatPage({ params }: ChatPageProps) {
-  const { id } = await params
+export default function ChatPage({ params }: ChatPageProps) {
+  const { id } = params
   const [character, setCharacter] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
